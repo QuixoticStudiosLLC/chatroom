@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Chat Room</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="menu-bar">
+            <select class="language-select" id="languageSelect">
+                <option value="en">English</option>
+                <option value="uk">Українська</option>
+            </select>
+            <button id="logout-btn">Logout</button>
+        </div>
+        <div class="content">
+            <div class="video-section">
+                <div class="video-container" id="local-video-container">
+                    
+                </div>
+                <div class="control-bar">
+                    <button id="join-btn">Call</button>
+                    <button id="mic-btn">Mute</button>
+                    <button id="camera-btn">Camera Off</button>
+                    <button id="leave-btn" style="display: none;">Leave</button>
+                </div>
+                <div class="video-container" id="remote-video-container">
+                    
+                </div>
+                <!-- Removed the second control bar -->
+            </div>
+            <div class="chat-section">
+                <div id="chatBox"></div>
+                <div class="input-area">
+                    <input type="text" id="messageInput" placeholder="Type your message...">
+                    <button onclick="sendMessage()">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="https://download.agora.io/sdk/release/AgoraRTM_N-1.5.0.js"></script>
+    <script src="./AgoraRTC_N-4.22.0.js"></script>
+    <script src="./app.js"></script>
+    <script>
+        const chatBox = document.getElementById('chatBox');
+        const messageInput = document.getElementById('messageInput');
+        const languageSelect = document.getElementById('languageSelect');
+        const sendButton = document.getElementById('sendButton');
+
+        // Get user name from URL parameter
+        const urlParams = new URLSearchParams(window.location.search);
+        const userName = urlParams.get('name') || 'Anonymous';
+
+        // Initialize Socket.IO
+        window.ENV = {
+            PORT: "<%= process.env.PORT %>",
+            AGORA_APP_ID: "<%= process.env.APP_ID %>"
+        };
+
+        const socket = io(`http://localhost:${PORT}`);
+
+        // Initialize Agora RTM
+        const rtmClient = AgoraRTM.createInstance('AGORA_APP_ID');
+        let rtmChannel;
+
+        async function initializeRTM() {
+            await rtmClient.login({ uid: userName });
+            rtmChannel = rtmClient.createChannel('chatChannel');
+            await rtmChannel.join();
+
+            rtmChannel.on('ChannelMessage', ({ text }, senderId) => {
+                displayMessage(text, senderId);
+            });
+        }
+
+        function displayMessage(text, senderId) {
+            const messageElement = document.createElement('p');
+            messageElement.textContent = `${senderId}: ${text}`;
+            chatBox.appendChild(messageElement);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        async function sendMessage() {
+            const message = messageInput.value.trim();
+            if (message !== '') {
+                await rtmChannel.sendMessage({ text: message });
+                displayMessage(message, 'You');
+                messageInput.value = '';
+            }
+        }
+
+        sendButton.addEventListener('click', sendMessage);
+        messageInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        languageSelect.addEventListener('change', function() {
+            const selectedLanguage = this.value;
+            console.log(`Language changed to: ${selectedLanguage}`);
+            // Here you would implement the logic to change the language
+            // This might involve translating UI elements and stored messages
+        });
+
+        // Initialize RTM when the page loads
+        initializeRTM();
+
+        // Logout function
+        async function logout() {
+            if (rtmChannel) {
+                await rtmChannel.leave();
+            }
+            if (rtmClient) {
+                await rtmClient.logout();
+            }
+            // Add any other logout logic here
+            window.location.href = '/index.html';
+        }
+
+        document.getElementById('logout-btn').addEventListener('click', logout);
+
+        // Socket.IO event listeners
+        socket.on('incomingCall', () => {
+            if (!isInCall) {
+                notifyIncomingCall();
+            }
+        });
+
+        socket.on('callEnded', () => {
+            if (!isInCall) {
+                resetCallButton();
+            }
+        });
+    </script>
+</body>
+</html>

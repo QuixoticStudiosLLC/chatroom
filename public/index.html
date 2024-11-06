@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photo Chat Website</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="notification" class="notification">
+        <div class="notification-content">
+            <p id="notification-text"></p>
+            <div class="notification-buttons">
+                <button id="accept-call">Accept</button>
+                <button id="decline-call">Decline</button>
+            </div>
+        </div>
+    </div>
+    <audio id="ringtone" loop>
+        <source src="/sounds/ringtone.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="hangupSound">
+        <source src="/sounds/hangup.wav" type="audio/wav">
+    </audio>
+    <audio id="messageSound">
+        <source src="/sounds/notification.mp3" type="audio/mp3">
+    </audio>
+    <div class="container">
+        <div class="menu-bar">
+            <div class="user-info">Logged in as: <span id="user-name"></span></div>
+            <div class="menu-controls">
+                <button id="call-user-button">📞 Call</button>
+                <select id="language-select">
+                    <option value="EN">English</option>
+                    <option value="UK">Ukrainian</option>
+                    <option value="ES">Spanish</option>
+                    <option value="FR">French</option>
+                    <option value="DE">German</option>
+                </select>
+                <button id="logout-button">Logout</button>
+            </div>
+        </div>
+        <div class="content">
+            <div class="photo-section">
+                <div class="photo-container">
+                    <h3>Your Photo</h3>
+                    <div class="photo-box">
+                        <video id="camera-preview" autoplay playsinline></video>
+                        <img id="local-photo" alt="Your photo">
+                    </div>
+                    <div class="photo-controls">
+                        <button id="start-camera">Open Camera</button>
+                        <button id="take-photo">Take Photo</button>
+                        <button id="send-photo">Send Photo</button>
+                    </div>
+                </div>
+                <div class="photo-container">
+                    <h3>Partner's Photo</h3>
+                    <div class="photo-box">
+                        <img id="remote-photo" alt="Partner's photo">
+                    </div>
+                    <div class="photo-controls">
+                        <button id="save-photo">Save Photo</button>
+                    </div>
+                </div>
+            </div>
+            <div class="chat-section">
+                <div id="chat-messages"></div>
+                <form id="chat-form">
+                    <textarea id="chat-input" placeholder="Type a message..." rows="3"></textarea>
+                    <button type="submit">Send</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
