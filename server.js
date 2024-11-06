@@ -1,6 +1,8 @@
 require('dotenv').config();
 const express = require('express');
 const app = express();
+const { createClient } = require('redis');
+const RedisStore = require('connect-redis').default;
 const http = require('http').createServer(app);
 const io = require('socket.io')(http);
 const fs = require('fs');
@@ -19,7 +21,15 @@ app.use((req, res, next) => {
 });
 
 // Session configuration with secure settings
+// Redis setup
+const redisClient = createClient({
+  url: process.env.REDIS_URL || 'redis://localhost:6379'
+});
+redisClient.connect().catch(console.error);
+
+// Session setup with Redis
 app.use(session({
+  store: new RedisStore({ client: redisClient }),
   secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
