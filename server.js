@@ -88,22 +88,32 @@ app.get('/index.html', requireLogin, (req, res) => {
 // Login endpoint
 app.post('/login', (req, res) => {
     const { email } = req.body;
+    console.log('Login attempt for email:', email); // Add logging
+    
     try {
-        // Read users from JSON file
-        const users = JSON.parse(fs.readFileSync('users.json', 'utf8'));
+        // Add absolute path to users.json
+        const usersPath = path.join(__dirname, 'users.json');
+        console.log('Reading users from:', usersPath); // Add logging
+        
+        const usersData = fs.readFileSync(usersPath, 'utf8');
+        console.log('Users data:', usersData); // Add logging
+        
+        const users = JSON.parse(usersData);
         
         // Check if email exists in users list
         const userExists = users.users.some(user => user.email === email);
+        console.log('User exists:', userExists); // Add logging
         
         if (userExists) {
             req.session.user = { email };
             res.sendStatus(200);
         } else {
+            console.log('Invalid email:', email); // Add logging
             res.sendStatus(401);
         }
     } catch (error) {
         console.error('Login error:', error);
-        res.sendStatus(500);
+        res.status(500).json({ error: 'Internal server error', details: error.message });
     }
 });
 
