@@ -116,14 +116,21 @@ app.post('/login', async (req, res) => {
         const user = users.users.find(u => u.email === email);
         
         if (user) {
-            // Set session data with explicit language
+            // Read existing language preference from users.json or default to 'EN'
+            user.language = user.language || 'EN';
+            
+            // Set session data
             req.session.user = {
                 email: user.email,
                 name: user.name,
-                language: req.session?.user?.language || 'EN' // Preserve existing language or default to EN
+                language: user.language
             };
 
-            console.log('Setting user session:', req.session.user);
+            // Save user language preference back to users.json
+            const updatedUsers = users.users.map(u => 
+                u.email === email ? { ...u, language: user.language } : u
+            );
+            fs.writeFileSync(usersPath, JSON.stringify({ users: updatedUsers }, null, 2));
 
             await new Promise((resolve, reject) => {
                 req.session.save((err) => {
@@ -132,7 +139,7 @@ app.post('/login', async (req, res) => {
                 });
             });
 
-            console.log('Session saved with language:', req.session.user.language);
+            console.log('Login successful with language:', user.language);
             res.sendStatus(200);
         } else {
             res.sendStatus(401);
