@@ -80,19 +80,18 @@
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({ email }),
-                    credentials: 'include' // Add this line
+                    credentials: 'include'
                 });
 
-                const data = await response.json();
-                
-                if (response.ok && data.success) {
-                    console.log('Login successful, user:', data.user);
+                if (response.ok) {
+                    console.log('Login successful');
                     // Wait a moment to ensure session is saved
                     setTimeout(() => {
                         window.location.replace('/index.html');
                     }, 100);
                 } else {
-                    errorMessage.textContent = data.error || 'Invalid email address. Please try again.';
+                    console.log('Login failed');
+                    errorMessage.textContent = 'Invalid email address. Please try again.';
                 }
             } catch (error) {
                 console.error('Login error:', error);

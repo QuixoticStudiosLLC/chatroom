@@ -114,32 +114,38 @@ app.get('/index.html', requireLogin, (req, res) => {
 // Login endpoint
 app.post('/login', (req, res) => {
     const { email } = req.body;
-    console.log('Login attempt for email:', email); // Add logging
+    console.log('Login attempt for email:', email);
     
     try {
-        // Add absolute path to users.json
         const usersPath = path.join(__dirname, 'users.json');
-        console.log('Reading users from:', usersPath); // Add logging
-        
         const usersData = fs.readFileSync(usersPath, 'utf8');
-        console.log('Users data:', usersData); // Add logging
-        
         const users = JSON.parse(usersData);
         
-        // Check if email exists in users list
-        const userExists = users.users.some(user => user.email === email);
-        console.log('User exists:', userExists); // Add logging
+        const user = users.users.find(user => user.email === email);
         
-        if (userExists) {
-            req.session.user = { email };
-            res.sendStatus(200);
+        if (user) {
+            // Set session data
+            req.session.user = {
+                email: user.email,
+                name: user.name
+            };
+            // Save session explicitly
+            req.session.save((err) => {
+                if (err) {
+                    console.error('Session save error:', err);
+                    res.sendStatus(500);
+                } else {
+                    console.log('Session saved:', req.session);
+                    res.sendStatus(200);
+                }
+            });
         } else {
-            console.log('Invalid email:', email); // Add logging
+            console.log('Invalid email:', email);
             res.sendStatus(401);
         }
     } catch (error) {
         console.error('Login error:', error);
-        res.status(500).json({ error: 'Internal server error', details: error.message });
+        res.sendStatus(500);
     }
 });
 
