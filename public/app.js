@@ -28,6 +28,7 @@ const hangupSound = document.getElementById('hangupSound');
 const messageSound = document.getElementById('messageSound');
 
 // Auth check
+// Update the auth check and language loading
 fetch('/check-auth', {
     credentials: 'same-origin',
     headers: {
@@ -42,14 +43,22 @@ fetch('/check-auth', {
     } else {
         userName = data.user.name;
         document.getElementById('user-name').textContent = userName;
-        // Set saved language
+        
+        // Set language and update UI
         if (data.user.language) {
-            console.log('Restoring saved language:', data.user.language);
+            console.log('Setting saved language:', data.user.language);
             targetLanguage = data.user.language;
             languageSelect.value = data.user.language;
-            socket.emit('set language', data.user.language);
+            socket.emit('set language', {
+                language: data.user.language,
+                userId: socket.id
+            });
         }
     }
+})
+.catch(error => {
+    console.error('Auth check error:', error);
+    window.location.replace('/login.html');
 });
 
 // Camera functionality
@@ -206,7 +215,13 @@ socket.on('photo', (photoData) => {
 
 socket.on('call request', (data) => {
     showNotification(`${data.caller} is calling...`, true);
-    ringtone.play();
+    ringtone.play().catch(error => {
+        console.error('Error playing ringtone:', error);
+        // Try to re-enable audio
+        enableSounds();
+        // Try playing again
+        ringtone.play().catch(console.error);
+    });
 });
 
 socket.on('call accepted', (data) => {
@@ -222,7 +237,11 @@ socket.on('call declined', (data) => {
 
 socket.on('call ended', () => {
     endCall();
-    hangupSound.play();
+    hangupSound.play().catch(error => {
+        console.error('Error playing hangup sound:', error);
+        enableSounds();
+        hangupSound.play().catch(console.error);
+    });
     showNotification('Call ended');
 });
 
@@ -256,7 +275,6 @@ declineCallButton.addEventListener('click', () => {
 });
 
 // Language selection
-// Update the language change handler
 languageSelect.addEventListener('change', async (event) => {
     const newLanguage = event.target.value.toUpperCase();
     console.log('Language change requested:', newLanguage);
@@ -306,12 +324,28 @@ logoutButton.addEventListener('click', async () => {
 
 // Initialize
 function initializeSounds() {
-    document.addEventListener('click', () => {
-        if (ringtone.paused && messageSound.paused) {
-            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            audioContext.resume();
-        }
-    }, { once: true });
+    // Pre-load sounds
+    ringtone.load();
+    hangupSound.load();
+    messageSound.load();
+
+    // Enable sounds on first user interaction
+    document.addEventListener('touchstart', enableSounds, { once: true });
+    document.addEventListener('click', enableSounds, { once: true });
+}
+
+function enableSounds() {
+    // Create context for iOS
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    const audioContext = new AudioContext();
+    
+    // Enable each sound
+    [ringtone, hangupSound, messageSound].forEach(sound => {
+        sound.play().then(() => {
+            sound.pause();
+            sound.currentTime = 0;
+        }).catch(console.error);
+    });
 }
 
 document.addEventListener('DOMContentLoaded', () => {

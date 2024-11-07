@@ -152,10 +152,10 @@ app.post('/login', async (req, res) => {
 
 // Check auth endpoint
 app.get('/check-auth', (req, res) => {
-    console.log('Auth check:', {
-        sessionID: req.sessionID,
+    console.log('Auth check request:', {
         session: req.session,
-        user: req.session?.user
+        user: req.session?.user,
+        language: req.session?.user?.language
     });
     
     if (req.session?.user) {
@@ -170,28 +170,27 @@ app.get('/check-auth', (req, res) => {
 
 // Save Language endpoint
 app.post('/set-language', async (req, res) => {
-    console.log('Set language request:', {
-        body: req.body,
-        currentSession: req.session
-    });
-    
     if (req.session?.user) {
         const newLanguage = req.body.language;
         req.session.user.language = newLanguage;
         
-        // Save session explicitly
-        req.session.save((err) => {
-            if (err) {
-                console.error('Error saving language:', err);
-                res.status(500).json({ error: 'Failed to save language' });
-            } else {
-                console.log('Language saved:', {
-                    user: req.session.user,
-                    newLanguage: newLanguage
-                });
-                res.json({ success: true, language: newLanguage });
-            }
-        });
+        try {
+            // Update users.json with new language preference
+            const usersPath = path.join(__dirname, 'users.json');
+            const users = JSON.parse(fs.readFileSync(usersPath, 'utf8'));
+            const updatedUsers = users.users.map(user => 
+                user.email === req.session.user.email 
+                    ? { ...user, language: newLanguage }
+                    : user
+            );
+            fs.writeFileSync(usersPath, JSON.stringify({ users: updatedUsers }, null, 2));
+            
+            await new Promise((resolve) => req.session.save(resolve));
+            res.json({ success: true, language: newLanguage });
+        } catch (error) {
+            console.error('Error saving language:', error);
+            res.status(500).json({ error: 'Failed to save language' });
+        }
     } else {
         res.status(401).json({ error: 'Not authenticated' });
     }
