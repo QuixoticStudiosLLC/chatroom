@@ -111,22 +111,41 @@ savePhotoButton.addEventListener('click', () => {
 
 // Chat functionality
 function addMessageToChat(data, isOwnMessage) {
+    console.log('Adding message to chat:', data);
     const messageContainer = document.createElement('div');
     messageContainer.classList.add('message-container');
     if (isOwnMessage) {
         messageContainer.classList.add('own-message');
     }
 
+    // Add message text
     const messageText = document.createElement('span');
     messageText.classList.add('message-text');
     messageText.textContent = data.message;
     messageContainer.appendChild(messageText);
 
+    // Show language info and translation if available
+    const infoText = document.createElement('span');
+    infoText.classList.add('message-info');
+    if (data.sourceLanguage) {
+        infoText.textContent = `(${data.sourceLanguage})`;
+        messageContainer.appendChild(infoText);
+    }
+
+    // Add translation if available
     if (data.translation) {
         const translatedText = document.createElement('span');
         translatedText.classList.add('translated-text');
-        translatedText.textContent = data.translation;
+        translatedText.textContent = `Translation: ${data.translation}`;
         messageContainer.appendChild(translatedText);
+    }
+
+    // Show error if translation failed
+    if (data.error) {
+        const errorText = document.createElement('span');
+        errorText.classList.add('error-text');
+        errorText.textContent = data.error;
+        messageContainer.appendChild(errorText);
     }
 
     chatMessages.appendChild(messageContainer);

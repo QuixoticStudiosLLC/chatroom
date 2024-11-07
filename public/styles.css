@@ -97,14 +97,27 @@ body, html {
     line-height: 1.4;
 }
 
+.message-info {
+    display: block;
+    font-size: 0.8em;
+    color: #666;
+    margin-top: 4px;
+}
+
 .translated-text {
     display: block;
     margin-top: 8px;
     padding-top: 8px;
     border-top: 1px solid rgba(0,0,0,0.1);
-    font-size: 0.9em;
-    color: #666;
     font-style: italic;
+    color: #2196F3;
+}
+
+.error-text {
+    display: block;
+    color: #f44336;
+    font-size: 0.8em;
+    margin-top: 4px;
 }
 
 #chat-form {

@@ -184,52 +184,62 @@ app.post('/logout', (req, res) => {
 io.on('connection', (socket) => {
     console.log('A user connected');
 
-    // In server.js, modify the chat message socket event
-socket.on('chat message', async (data) => {
-    try {
-        // Detect language
-        const [detection] = await translate.detect(data.message);
-        const sourceLanguage = detection.language.toUpperCase();
-
-        // Send to all clients except sender
-        for (let [id, clientSocket] of io.sockets.sockets) {
-            if (id !== socket.id) {
-                const targetLang = clientSocket.userLanguage || 'EN';
-                
-                if (sourceLanguage !== targetLang) {
-                    try {
-                        const [translation] = await translate.translate(
-                            data.message, 
-                            targetLang
-                        );
+    socket.on('chat message', async (data) => {
+        console.log('Received chat message:', data);
+        try {
+            // Detect language
+            console.log('Attempting to detect language for:', data.message);
+            const [detection] = await translate.detect(data.message);
+            const sourceLanguage = detection.language.toUpperCase();
+            console.log('Detected language:', sourceLanguage);
+    
+            // Send to all clients except sender
+            for (let [id, clientSocket] of io.sockets.sockets) {
+                if (id !== socket.id) {
+                    const targetLang = clientSocket.userLanguage || 'EN';
+                    console.log('Target language for client:', targetLang);
+                    
+                    if (sourceLanguage !== targetLang) {
+                        try {
+                            console.log(`Attempting translation from ${sourceLanguage} to ${targetLang}`);
+                            const [translation] = await translate.translate(
+                                data.message, 
+                                targetLang
+                            );
+                            console.log('Translation result:', translation);
+                            clientSocket.emit('chat message', {
+                                message: data.message,
+                                translation: translation,
+                                userName: data.userName,
+                                sourceLanguage: sourceLanguage
+                            });
+                        } catch (error) {
+                            console.error('Translation error:', error);
+                            clientSocket.emit('chat message', {
+                                message: data.message,
+                                userName: data.userName,
+                                error: 'Translation failed'
+                            });
+                        }
+                    } else {
+                        console.log('No translation needed - same language');
                         clientSocket.emit('chat message', {
                             message: data.message,
-                            translation: translation,
-                            userName: data.userName
-                        });
-                    } catch (error) {
-                        console.error('Translation error:', error);
-                        clientSocket.emit('chat message', {
-                            message: data.message,
-                            userName: data.userName
+                            userName: data.userName,
+                            sourceLanguage: sourceLanguage
                         });
                     }
-                } else {
-                    clientSocket.emit('chat message', {
-                        message: data.message,
-                        userName: data.userName
-                    });
                 }
             }
+        } catch (error) {
+            console.error('Message handling error:', error);
+            socket.broadcast.emit('chat message', {
+                message: data.message,
+                userName: data.userName,
+                error: 'Message handling failed'
+            });
         }
-    } catch (error) {
-        console.error('Message handling error:', error);
-        socket.broadcast.emit('chat message', {
-            message: data.message,
-            userName: data.userName
-        });
-    }
-});
+    });
 
     socket.on('photo', (photoData) => {
         socket.broadcast.emit('photo', photoData);
