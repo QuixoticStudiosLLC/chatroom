@@ -17,37 +17,62 @@ const redisClient = createClient({
 });
 
 redisClient.on('error', (err) => console.log('Redis Client Error', err));
-redisClient.on('connect', () => console.log('Redis Client Connected'));
+// Add this to test Redis connection
+redisClient.on('connect', () => {
+    console.log('Connected to Redis');
+    // Test Redis functionality
+    redisClient.set('test', 'working').then(() => {
+        console.log('Redis write test successful');
+    });
+});
 
-redisClient.connect().catch(console.error);
-
-// Session setup with Redis
-const sessionMiddleware = session({
+const sessionConfig = {
     store: new RedisStore({ 
         client: redisClient,
-        prefix: "session:",
-        disableTouch: false
+        prefix: "sess:"
     }),
-    secret: process.env.SESSION_SECRET,
-    resave: true,
+    secret: process.env.SESSION_SECRET || 'your-secret-key',
+    resave: false,
     saveUninitialized: false,
-    rolling: true,
     cookie: { 
         secure: process.env.NODE_ENV === 'production',
         httpOnly: true,
-        maxAge: 24 * 60 * 60 * 1000,
+        maxAge: 1000 * 60 * 60 * 24, // 24 hours
         sameSite: 'lax'
     },
     name: 'sessionId'
+};
+
+if (process.env.NODE_ENV === 'production') {
+    app.set('trust proxy', 1);
+    sessionConfig.cookie.secure = true;
+}
+
+app.use(session(sessionConfig));
+
+// Session setup with Redis
+const RedisStore = require('connect-redis').default;
+
+const redisClient = createClient({
+    url: process.env.REDIS_URL || 'redis://localhost:6379',
+    socket: {
+        tls: false,
+        rejectUnauthorized: false
+    }
 });
+
+redisClient.connect().catch(console.error);
 
 app.use(sessionMiddleware);
 
+// Session Middleware
 app.use((req, res, next) => {
-    console.log('Session status:', {
+    console.log('Request:', {
+        url: req.url,
+        method: req.method,
+        sessionID: req.sessionID,
         hasSession: !!req.session,
-        hasUser: !!req.session?.user,
-        url: req.url
+        sessionUser: req.session?.user
     });
     next();
 });
@@ -101,12 +126,18 @@ app.use((req, res, next) => {
     res.redirect('/login.html');
 });
 
-// Check auth status
+// Check auth endpoint
 app.get('/check-auth', (req, res) => {
-    if (req.session.user) {
-        res.json({ 
-            authenticated: true, 
-            user: req.session.user 
+    console.log('Auth check:', {
+        sessionID: req.sessionID,
+        session: req.session,
+        user: req.session?.user
+    });
+    
+    if (req.session?.user) {
+        res.json({
+            authenticated: true,
+            user: req.session.user
         });
     } else {
         res.json({ authenticated: false });
@@ -119,7 +150,7 @@ app.get('/index.html', requireLogin, (req, res) => {
 });
 
 // Login endpoint
-app.post('/login', (req, res) => {
+app.post('/login', async (req, res) => {
     const { email } = req.body;
     console.log('Login attempt for email:', email);
     
@@ -128,29 +159,29 @@ app.post('/login', (req, res) => {
         const usersData = fs.readFileSync(usersPath, 'utf8');
         const users = JSON.parse(usersData);
         
-        const user = users.users.find(user => user.email === email);
+        const user = users.users.find(u => u.email === email);
         
         if (user) {
-            console.log('User found:', user);
             // Set session data
             req.session.user = {
                 email: user.email,
                 name: user.name
             };
-            
-            // Save session explicitly
-            req.session.save((err) => {
-                if (err) {
-                    console.error('Session save error:', err);
-                    res.sendStatus(500);
-                } else {
-                    console.log('Session saved. Session data:', req.session);
-                    console.log('Session ID:', req.session.id);
-                    res.sendStatus(200);
-                }
+
+            // Wait for session to be saved
+            await new Promise((resolve, reject) => {
+                req.session.save((err) => {
+                    if (err) reject(err);
+                    else resolve();
+                });
             });
+
+            // Verify session was saved
+            const sessionData = await redisClient.get(`sess:${req.sessionID}`);
+            console.log('Saved session data:', sessionData);
+
+            res.sendStatus(200);
         } else {
-            console.log('Invalid email:', email);
             res.sendStatus(401);
         }
     } catch (error) {

@@ -4,21 +4,24 @@ let targetLanguage = 'EN';
 let isInCall = false;
 
 // Immediate auth check when page loads
+// Update auth check fetch
 fetch('/check-auth', {
-    credentials: 'include' // Add this line
+    credentials: 'same-origin',
+    headers: {
+        'Cache-Control': 'no-cache'
+    }
 })
 .then(response => response.json())
 .then(data => {
-    console.log('Auth check:', data);
+    console.log('Auth check response:', data);
     if (!data.authenticated) {
-        console.log('Not authenticated, redirecting to login...');
         window.location.replace('/login.html');
     } else {
-        console.log('Authenticated as:', data.user);
         userName = data.user.name;
         document.getElementById('user-name').textContent = userName;
     }
-})
+});
+
 .catch(error => {
     console.error('Auth check error:', error);
     window.location.replace('/login.html');
