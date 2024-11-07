@@ -84,10 +84,15 @@
     
                 const data = await response.json().catch(() => null);
                 
-                if (response.ok && data) {
-                    window.location.href = '/index.html';
+                if (response.ok) {
+                    console.log('Login successful, attempting redirect...');
+                    // Clear any existing session storage
+                    sessionStorage.clear();
+                    // Force a complete page reload
+                    window.location.replace('/index.html');
                 } else {
-                    errorMessage.textContent = data?.error || 'Invalid email address. Please try again.';
+                    console.log('Login failed');
+                    errorMessage.textContent = 'Invalid email address. Please try again.';
                 }
             } catch (error) {
                 console.error('Login error:', error);

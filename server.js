@@ -18,15 +18,28 @@ redisClient.connect().catch(console.error);
 
 // Session setup with Redis
 const sessionMiddleware = session({
-    store: new RedisStore({ client: redisClient }),
+    store: new RedisStore({ 
+        client: redisClient,
+        prefix: "session:",
+    }),
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
-    cookie: {
+    cookie: { 
         secure: process.env.NODE_ENV === 'production',
         httpOnly: true,
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
-    }
+    },
+    name: 'sessionId' // Custom name for clarity
+});
+
+app.use((req, res, next) => {
+    console.log('Session status:', {
+        hasSession: !!req.session,
+        hasUser: !!req.session?.user,
+        url: req.url
+    });
+    next();
 });
 
 app.use(sessionMiddleware);
@@ -48,23 +61,34 @@ const requireLogin = (req, res, next) => {
 
 // Routes
 app.get('/', (req, res) => {
-    res.redirect('/login.html');
+    console.log('Root route accessed, session:', req.session);
+    if (req.session && req.session.user) {
+        res.redirect('/index.html');
+    } else {
+        res.redirect('/login.html');
+    }
 });
 
-// Protect all routes except login page and its assets
+// Protect all routes except login
 app.use((req, res, next) => {
+    console.log('Protection middleware:', {
+        path: req.path,
+        hasSession: !!req.session,
+        hasUser: !!req.session?.user
+    });
+    
     if (req.path === '/login.html' || 
         req.path === '/styles.css' || 
-        req.path === '/login.js' ||
-        req.path === '/check-auth' ||
-        req.path === '/login') {
+        req.path === '/login' ||
+        req.path === '/check-auth') {
         return next();
     }
     
-    if (req.session.user) {
+    if (req.session && req.session.user) {
         return next();
     }
     
+    console.log('Redirecting to login');
     res.redirect('/login.html');
 });
 
@@ -119,11 +143,15 @@ app.post('/login', (req, res) => {
 
 // Logout endpoint
 app.post('/logout', (req, res) => {
+    console.log('Logout requested');
     req.session.destroy((err) => {
         if (err) {
             console.error('Logout error:', err);
             res.status(500).json({ error: 'Could not log out' });
         } else {
+            console.log('Session destroyed successfully');
+            // Clear the session cookie
+            res.clearCookie('connect.sid');
             res.sendStatus(200);
         }
     });
