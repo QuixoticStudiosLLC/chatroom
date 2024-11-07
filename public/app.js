@@ -4,23 +4,25 @@ let targetLanguage = 'EN';
 let isInCall = false;
 
 // Immediate auth check when page loads
-fetch('/check-auth')
-    .then(response => response.json())
-    .then(data => {
-        console.log('Auth check:', data);
-        if (!data.authenticated) {
-            console.log('Not authenticated, redirecting to login...');
-            window.location.replace('/login.html');
-        } else {
-            console.log('Authenticated as:', data.user);
-            userName = data.user.name;
-            document.getElementById('user-name').textContent = userName;
-        }
-    })
-    .catch(error => {
-        console.error('Auth check error:', error);
+fetch('/check-auth', {
+    credentials: 'include' // Add this line
+})
+.then(response => response.json())
+.then(data => {
+    console.log('Auth check:', data);
+    if (!data.authenticated) {
+        console.log('Not authenticated, redirecting to login...');
         window.location.replace('/login.html');
-    });
+    } else {
+        console.log('Authenticated as:', data.user);
+        userName = data.user.name;
+        document.getElementById('user-name').textContent = userName;
+    }
+})
+.catch(error => {
+    console.error('Auth check error:', error);
+    window.location.replace('/login.html');
+});
 
 // DOM Elements
 const cameraPreview = document.getElementById('camera-preview');

@@ -20,18 +20,21 @@ redisClient.connect().catch(console.error);
 const sessionMiddleware = session({
     store: new RedisStore({ 
         client: redisClient,
-        prefix: "session:",
+        prefix: "session:"
     }),
     secret: process.env.SESSION_SECRET,
-    resave: false,
-    saveUninitialized: false,
+    resave: true,  // Changed to true
+    saveUninitialized: true,  // Changed to true
     cookie: { 
         secure: process.env.NODE_ENV === 'production',
         httpOnly: true,
-        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+        sameSite: 'lax'  // Added this
     },
-    name: 'sessionId' // Custom name for clarity
+    name: 'sessionId'
 });
+
+app.use(sessionMiddleware);
 
 app.use((req, res, next) => {
     console.log('Session status:', {
@@ -42,7 +45,6 @@ app.use((req, res, next) => {
     next();
 });
 
-app.use(sessionMiddleware);
 app.use(express.json());
 app.use(express.static('public'));
 

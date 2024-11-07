@@ -71,7 +71,7 @@
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             const email = document.getElementById('email').value;
-            errorMessage.textContent = ''; // Clear any previous error
+            errorMessage.textContent = '';
             
             try {
                 const response = await fetch('/login', {
@@ -79,20 +79,20 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ email })
+                    body: JSON.stringify({ email }),
+                    credentials: 'include' // Add this line
                 });
-    
-                const data = await response.json().catch(() => null);
+
+                const data = await response.json();
                 
-                if (response.ok) {
-                    console.log('Login successful, attempting redirect...');
-                    // Clear any existing session storage
-                    sessionStorage.clear();
-                    // Force a complete page reload
-                    window.location.replace('/index.html');
+                if (response.ok && data.success) {
+                    console.log('Login successful, user:', data.user);
+                    // Wait a moment to ensure session is saved
+                    setTimeout(() => {
+                        window.location.replace('/index.html');
+                    }, 100);
                 } else {
-                    console.log('Login failed');
-                    errorMessage.textContent = 'Invalid email address. Please try again.';
+                    errorMessage.textContent = data.error || 'Invalid email address. Please try again.';
                 }
             } catch (error) {
                 console.error('Login error:', error);
