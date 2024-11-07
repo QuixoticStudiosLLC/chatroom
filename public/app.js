@@ -1,6 +1,7 @@
 const socket = io();
 let stream = null;
 let targetLanguage = 'EN';
+let savedLanguage = 'EN';
 let userName = '';
 let isInCall = false;
 
@@ -41,6 +42,12 @@ fetch('/check-auth', {
     } else {
         userName = data.user.name;
         document.getElementById('user-name').textContent = userName;
+        // Set saved language
+        if (data.user.language) {
+            savedLanguage = data.user.language;
+            languageSelect.value = savedLanguage;
+            socket.emit('set language', savedLanguage);
+        }
     }
 });
 
@@ -229,9 +236,26 @@ declineCallButton.addEventListener('click', () => {
 });
 
 // Language selection
-languageSelect.addEventListener('change', (event) => {
-    targetLanguage = event.target.value.toUpperCase();
-    socket.emit('set language', targetLanguage);
+languageSelect.addEventListener('change', async (event) => {
+    const newLanguage = event.target.value.toUpperCase();
+    targetLanguage = newLanguage;
+    
+    try {
+        // Save language preference to server
+        await fetch('/set-language', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({ language: newLanguage })
+        });
+        
+        // Update socket
+        socket.emit('set language', newLanguage);
+    } catch (error) {
+        console.error('Error saving language preference:', error);
+    }
 });
 
 // Logout functionality

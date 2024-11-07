@@ -9,6 +9,9 @@ const fs = require('fs');
 const app = express();
 const http = require('http').createServer(app);
 const io = require('socket.io')(http);
+// Google Translate
+const { Translate } = require('@google-cloud/translate').v2;
+const translate = new Translate({key: process.env.GOOGLE_TRANSLATE_API_KEY});
 
 // Redis setup
 const redisClient = createClient({
@@ -77,6 +80,7 @@ app.get('/', (req, res) => {
     }
 });
 
+// Login endpoint
 app.post('/login', async (req, res) => {
     const { email } = req.body;
     console.log('Login attempt for email:', email);
@@ -89,10 +93,10 @@ app.post('/login', async (req, res) => {
         const user = users.users.find(u => u.email === email);
         
         if (user) {
-            // Set session data
             req.session.user = {
                 email: user.email,
-                name: user.name
+                name: user.name,
+                language: 'EN' // Default language
             };
 
             // Wait for session to be saved
@@ -117,6 +121,7 @@ app.post('/login', async (req, res) => {
     }
 });
 
+// Check auth endpoint
 app.get('/check-auth', (req, res) => {
     console.log('Auth check:', {
         sessionID: req.sessionID,
@@ -134,6 +139,18 @@ app.get('/check-auth', (req, res) => {
     }
 });
 
+// Save Language endpoint
+app.post('/set-language', async (req, res) => {
+    if (req.session?.user) {
+        req.session.user.language = req.body.language;
+        await new Promise((resolve) => req.session.save(resolve));
+        res.sendStatus(200);
+    } else {
+        res.sendStatus(401);
+    }
+});
+
+// Logout endpoint
 app.post('/logout', (req, res) => {
     req.session.destroy((err) => {
         if (err) {
@@ -150,9 +167,52 @@ app.post('/logout', (req, res) => {
 io.on('connection', (socket) => {
     console.log('A user connected');
 
-    socket.on('chat message', (data) => {
-        socket.broadcast.emit('chat message', data);
-    });
+    // In server.js, modify the chat message socket event
+socket.on('chat message', async (data) => {
+    try {
+        // Detect language
+        const [detection] = await translate.detect(data.message);
+        const sourceLanguage = detection.language.toUpperCase();
+
+        // Send to all clients except sender
+        for (let [id, clientSocket] of io.sockets.sockets) {
+            if (id !== socket.id) {
+                const targetLang = clientSocket.userLanguage || 'EN';
+                
+                if (sourceLanguage !== targetLang) {
+                    try {
+                        const [translation] = await translate.translate(
+                            data.message, 
+                            targetLang
+                        );
+                        clientSocket.emit('chat message', {
+                            message: data.message,
+                            translation: translation,
+                            userName: data.userName
+                        });
+                    } catch (error) {
+                        console.error('Translation error:', error);
+                        clientSocket.emit('chat message', {
+                            message: data.message,
+                            userName: data.userName
+                        });
+                    }
+                } else {
+                    clientSocket.emit('chat message', {
+                        message: data.message,
+                        userName: data.userName
+                    });
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Message handling error:', error);
+        socket.broadcast.emit('chat message', {
+            message: data.message,
+            userName: data.userName
+        });
+    }
+});
 
     socket.on('photo', (photoData) => {
         socket.broadcast.emit('photo', photoData);
