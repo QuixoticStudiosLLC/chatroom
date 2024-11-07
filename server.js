@@ -11,7 +11,30 @@ const http = require('http').createServer(app);
 const io = require('socket.io')(http);
 // Google Translate
 const { Translate } = require('@google-cloud/translate').v2;
-const translate = new Translate({key: process.env.GOOGLE_TRANSLATE_API_KEY});
+//const translate = new Translate({key: process.env.GOOGLE_TRANSLATE_API_KEY});
+
+// Initialize with explicit settings
+const translate = new Translate({
+    projectId: 'valiant-surfer-432316-v6', // Add your Google Cloud project ID
+    key: process.env.GOOGLE_TRANSLATE_API_KEY
+});
+
+// Add a test translation endpoint
+app.get('/test-translate', async (req, res) => {
+    try {
+        const [translation] = await translate.translate('Hello World', 'uk');
+        res.json({ 
+            success: true, 
+            translation,
+            apiKeyPresent: !!process.env.GOOGLE_TRANSLATE_API_KEY
+        });
+    } catch (error) {
+        res.status(500).json({ 
+            error: error.message,
+            apiKeyPresent: !!process.env.GOOGLE_TRANSLATE_API_KEY
+        });
+    }
+});
 
 // Redis setup
 const redisClient = createClient({
@@ -181,48 +204,67 @@ app.post('/logout', (req, res) => {
 });
 
 // Socket.IO handling
+// Socket.IO connection handling
 io.on('connection', (socket) => {
-    console.log('A user connected');
+    console.log('A user connected:', socket.id);
+
+    socket.userLanguage = 'EN'; // Default language
+
+    socket.on('set language', (data) => {
+        console.log('Setting socket language:', {
+            socketId: socket.id,
+            newLanguage: data.language,
+            previousLanguage: socket.userLanguage
+        });
+        socket.userLanguage = data.language;
+    });
 
     socket.on('chat message', async (data) => {
-        console.log('Received chat message:', data);
+        console.log('Processing chat message:', {
+            message: data.message,
+            senderSocketId: socket.id,
+            senderLanguage: socket.userLanguage
+        });
+
         try {
-            // Detect language
-            console.log('Attempting to detect language for:', data.message);
+            // Detect source language
             const [detection] = await translate.detect(data.message);
             const sourceLanguage = detection.language.toUpperCase();
-            console.log('Detected language:', sourceLanguage);
-    
-            // Send to all clients except sender
-            for (let [id, clientSocket] of io.sockets.sockets) {
-                if (id !== socket.id) {
-                    const targetLang = clientSocket.userLanguage || 'EN';
-                    console.log('Target language for client:', targetLang);
-                    
-                    if (sourceLanguage !== targetLang) {
+            console.log('Source language detected:', sourceLanguage);
+
+            // Send to other clients
+            for (let [clientId, clientSocket] of io.sockets.sockets) {
+                if (clientId !== socket.id) {
+                    const targetLang = clientSocket.userLanguage;
+                    console.log('Translation check:', {
+                        targetClient: clientId,
+                        targetLanguage: targetLang,
+                        sourceLanguage: sourceLanguage
+                    });
+
+                    if (targetLang && targetLang !== sourceLanguage) {
                         try {
-                            console.log(`Attempting translation from ${sourceLanguage} to ${targetLang}`);
-                            const [translation] = await translate.translate(
-                                data.message, 
-                                targetLang
-                            );
+                            console.log(`Translating from ${sourceLanguage} to ${targetLang}`);
+                            const [translation] = await translate.translate(data.message, targetLang);
                             console.log('Translation result:', translation);
+                            
                             clientSocket.emit('chat message', {
                                 message: data.message,
                                 translation: translation,
                                 userName: data.userName,
-                                sourceLanguage: sourceLanguage
+                                sourceLanguage: sourceLanguage,
+                                targetLanguage: targetLang
                             });
                         } catch (error) {
                             console.error('Translation error:', error);
                             clientSocket.emit('chat message', {
                                 message: data.message,
                                 userName: data.userName,
-                                error: 'Translation failed'
+                                error: `Translation failed: ${error.message}`
                             });
                         }
                     } else {
-                        console.log('No translation needed - same language');
+                        console.log('No translation needed');
                         clientSocket.emit('chat message', {
                             message: data.message,
                             userName: data.userName,
@@ -232,37 +274,13 @@ io.on('connection', (socket) => {
                 }
             }
         } catch (error) {
-            console.error('Message handling error:', error);
+            console.error('Message processing error:', error);
             socket.broadcast.emit('chat message', {
                 message: data.message,
                 userName: data.userName,
-                error: 'Message handling failed'
+                error: 'Message processing failed'
             });
         }
-    });
-
-    socket.on('photo', (photoData) => {
-        socket.broadcast.emit('photo', photoData);
-    });
-
-    socket.on('call request', (data) => {
-        socket.broadcast.emit('call request', data);
-    });
-
-    socket.on('call accepted', (data) => {
-        socket.broadcast.emit('call accepted', data);
-    });
-
-    socket.on('call declined', (data) => {
-        socket.broadcast.emit('call declined', data);
-    });
-
-    socket.on('end call', () => {
-        socket.broadcast.emit('call ended');
-    });
-
-    socket.on('disconnect', () => {
-        console.log('A user disconnected');
     });
 });
 

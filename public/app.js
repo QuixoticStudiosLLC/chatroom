@@ -256,12 +256,14 @@ declineCallButton.addEventListener('click', () => {
 });
 
 // Language selection
+// Update the language change handler
 languageSelect.addEventListener('change', async (event) => {
     const newLanguage = event.target.value.toUpperCase();
     console.log('Language change requested:', newLanguage);
     targetLanguage = newLanguage;
     
     try {
+        // Save to server
         const response = await fetch('/set-language', {
             method: 'POST',
             headers: {
@@ -275,10 +277,12 @@ languageSelect.addEventListener('change', async (event) => {
         console.log('Language save response:', data);
         
         if (data.success) {
-            socket.emit('set language', newLanguage);
-            console.log('Language updated to:', newLanguage);
-        } else {
-            console.error('Failed to save language preference');
+            // Emit to socket with explicit data
+            socket.emit('set language', {
+                language: newLanguage,
+                userId: socket.id
+            });
+            console.log('Socket language updated to:', newLanguage);
         }
     } catch (error) {
         console.error('Error saving language preference:', error);
