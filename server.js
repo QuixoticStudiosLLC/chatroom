@@ -203,7 +203,6 @@ app.post('/logout', (req, res) => {
     });
 });
 
-// Socket.IO handling
 // Socket.IO connection handling
 io.on('connection', (socket) => {
     console.log('A user connected:', socket.id);
@@ -219,6 +218,28 @@ io.on('connection', (socket) => {
         socket.userLanguage = data.language;
     });
 
+    // Call events
+    socket.on('call request', (data) => {
+        console.log('Call request:', data);
+        socket.broadcast.emit('call request', data);
+    });
+
+    socket.on('call accepted', (data) => {
+        console.log('Call accepted:', data);
+        socket.broadcast.emit('call accepted', data);
+    });
+
+    socket.on('call declined', (data) => {
+        console.log('Call declined:', data);
+        socket.broadcast.emit('call declined', data);
+    });
+
+    socket.on('end call', () => {
+        console.log('Call ended by:', socket.id);
+        socket.broadcast.emit('call ended');
+    });
+
+    // Chat message with translation
     socket.on('chat message', async (data) => {
         console.log('Processing chat message:', {
             message: data.message,
@@ -281,6 +302,10 @@ io.on('connection', (socket) => {
                 error: 'Message processing failed'
             });
         }
+    });
+
+    socket.on('disconnect', () => {
+        console.log('User disconnected:', socket.id);
     });
 });
 
