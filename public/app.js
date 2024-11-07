@@ -3,6 +3,25 @@ let stream = null;
 let targetLanguage = 'EN';
 let isInCall = false;
 
+// Immediate auth check when page loads
+fetch('/check-auth')
+    .then(response => response.json())
+    .then(data => {
+        console.log('Auth check:', data);
+        if (!data.authenticated) {
+            console.log('Not authenticated, redirecting to login...');
+            window.location.replace('/login.html');
+        } else {
+            console.log('Authenticated as:', data.user);
+            userName = data.user.name;
+            document.getElementById('user-name').textContent = userName;
+        }
+    })
+    .catch(error => {
+        console.error('Auth check error:', error);
+        window.location.replace('/login.html');
+    });
+
 // DOM Elements
 const cameraPreview = document.getElementById('camera-preview');
 const localPhoto = document.getElementById('local-photo');
@@ -43,7 +62,11 @@ logoutButton.addEventListener('click', async () => {
             method: 'POST'
         });
         if (response.ok) {
-            window.location.href = '/login.html';
+            console.log('Logout successful, redirecting...');
+            // Clear any existing session storage
+            sessionStorage.clear();
+            // Force a complete page reload
+            window.location.replace('/login.html');
         }
     } catch (error) {
         console.error('Logout error:', error);
