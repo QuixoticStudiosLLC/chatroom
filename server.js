@@ -48,10 +48,35 @@ const requireLogin = (req, res, next) => {
 
 // Routes
 app.get('/', (req, res) => {
+    res.redirect('/login.html');
+});
+
+// Protect all routes except login page and its assets
+app.use((req, res, next) => {
+    if (req.path === '/login.html' || 
+        req.path === '/styles.css' || 
+        req.path === '/login.js' ||
+        req.path === '/check-auth' ||
+        req.path === '/login') {
+        return next();
+    }
+    
     if (req.session.user) {
-        res.redirect('/index.html');
+        return next();
+    }
+    
+    res.redirect('/login.html');
+});
+
+// Check auth status
+app.get('/check-auth', (req, res) => {
+    if (req.session.user) {
+        res.json({ 
+            authenticated: true, 
+            user: req.session.user 
+        });
     } else {
-        res.redirect('/login.html');
+        res.json({ authenticated: false });
     }
 });
 
