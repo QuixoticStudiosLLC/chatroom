@@ -93,13 +93,15 @@ app.post('/login', async (req, res) => {
         const user = users.users.find(u => u.email === email);
         
         if (user) {
+            // Set session data with explicit language
             req.session.user = {
                 email: user.email,
                 name: user.name,
-                language: 'EN' // Default language
+                language: req.session?.user?.language || 'EN' // Preserve existing language or default to EN
             };
 
-            // Wait for session to be saved
+            console.log('Setting user session:', req.session.user);
+
             await new Promise((resolve, reject) => {
                 req.session.save((err) => {
                     if (err) reject(err);
@@ -107,10 +109,7 @@ app.post('/login', async (req, res) => {
                 });
             });
 
-            // Verify session was saved
-            const sessionData = await redisClient.get(`sess:${req.sessionID}`);
-            console.log('Saved session data:', sessionData);
-
+            console.log('Session saved with language:', req.session.user.language);
             res.sendStatus(200);
         } else {
             res.sendStatus(401);
@@ -141,12 +140,30 @@ app.get('/check-auth', (req, res) => {
 
 // Save Language endpoint
 app.post('/set-language', async (req, res) => {
+    console.log('Set language request:', {
+        body: req.body,
+        currentSession: req.session
+    });
+    
     if (req.session?.user) {
-        req.session.user.language = req.body.language;
-        await new Promise((resolve) => req.session.save(resolve));
-        res.sendStatus(200);
+        const newLanguage = req.body.language;
+        req.session.user.language = newLanguage;
+        
+        // Save session explicitly
+        req.session.save((err) => {
+            if (err) {
+                console.error('Error saving language:', err);
+                res.status(500).json({ error: 'Failed to save language' });
+            } else {
+                console.log('Language saved:', {
+                    user: req.session.user,
+                    newLanguage: newLanguage
+                });
+                res.json({ success: true, language: newLanguage });
+            }
+        });
     } else {
-        res.sendStatus(401);
+        res.status(401).json({ error: 'Not authenticated' });
     }
 });
 

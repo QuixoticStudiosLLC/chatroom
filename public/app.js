@@ -44,9 +44,10 @@ fetch('/check-auth', {
         document.getElementById('user-name').textContent = userName;
         // Set saved language
         if (data.user.language) {
-            savedLanguage = data.user.language;
-            languageSelect.value = savedLanguage;
-            socket.emit('set language', savedLanguage);
+            console.log('Restoring saved language:', data.user.language);
+            targetLanguage = data.user.language;
+            languageSelect.value = data.user.language;
+            socket.emit('set language', data.user.language);
         }
     }
 });
@@ -238,11 +239,11 @@ declineCallButton.addEventListener('click', () => {
 // Language selection
 languageSelect.addEventListener('change', async (event) => {
     const newLanguage = event.target.value.toUpperCase();
+    console.log('Language change requested:', newLanguage);
     targetLanguage = newLanguage;
     
     try {
-        // Save language preference to server
-        await fetch('/set-language', {
+        const response = await fetch('/set-language', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -251,8 +252,15 @@ languageSelect.addEventListener('change', async (event) => {
             body: JSON.stringify({ language: newLanguage })
         });
         
-        // Update socket
-        socket.emit('set language', newLanguage);
+        const data = await response.json();
+        console.log('Language save response:', data);
+        
+        if (data.success) {
+            socket.emit('set language', newLanguage);
+            console.log('Language updated to:', newLanguage);
+        } else {
+            console.error('Failed to save language preference');
+        }
     } catch (error) {
         console.error('Error saving language preference:', error);
     }
