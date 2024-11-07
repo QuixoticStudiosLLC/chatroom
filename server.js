@@ -1,10 +1,10 @@
-const path = require('path');
-const fs = require('fs');
 require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
 const { createClient } = require('redis');
 const RedisStore = require('connect-redis').default;
+const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const http = require('http').createServer(app);
@@ -13,11 +13,14 @@ const io = require('socket.io')(http);
 // Redis setup
 const redisClient = createClient({
     url: process.env.REDIS_URL || 'redis://localhost:6379',
-    legacyMode: false
+    socket: {
+        tls: false,
+        rejectUnauthorized: false
+    }
 });
 
-redisClient.on('error', (err) => console.log('Redis Client Error', err));
-// Add this to test Redis connection
+redisClient.connect().catch(console.error);
+
 redisClient.on('connect', () => {
     console.log('Connected to Redis');
     // Test Redis functionality
@@ -26,6 +29,7 @@ redisClient.on('connect', () => {
     });
 });
 
+// Session configuration
 const sessionConfig = {
     store: new RedisStore({ 
         client: redisClient,
@@ -49,23 +53,10 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 app.use(session(sessionConfig));
+app.use(express.json());
+app.use(express.static('public'));
 
-// Session setup with Redis
-const RedisStore = require('connect-redis').default;
-
-const redisClient = createClient({
-    url: process.env.REDIS_URL || 'redis://localhost:6379',
-    socket: {
-        tls: false,
-        rejectUnauthorized: false
-    }
-});
-
-redisClient.connect().catch(console.error);
-
-app.use(sessionMiddleware);
-
-// Session Middleware
+// Request logging middleware
 app.use((req, res, next) => {
     console.log('Request:', {
         url: req.url,
@@ -77,79 +68,15 @@ app.use((req, res, next) => {
     next();
 });
 
-app.use(express.json());
-app.use(express.static('public'));
-
-// Middleware to check if user is logged in
-const requireLogin = (req, res, next) => {
-    if (req.session.user) {
-        next();
-    } else {
-        if (req.accepts('html')) {
-            res.redirect('/login.html');
-        } else {
-            res.status(401).json({ error: 'Unauthorized' });
-        }
-    }
-};
-
 // Routes
 app.get('/', (req, res) => {
-    console.log('Root route accessed, session:', req.session);
-    if (req.session && req.session.user) {
+    if (req.session?.user) {
         res.redirect('/index.html');
     } else {
         res.redirect('/login.html');
     }
 });
 
-// Protect all routes except login
-app.use((req, res, next) => {
-    console.log('Protection middleware:', {
-        path: req.path,
-        hasSession: !!req.session,
-        hasUser: !!req.session?.user
-    });
-    
-    if (req.path === '/login.html' || 
-        req.path === '/styles.css' || 
-        req.path === '/login' ||
-        req.path === '/check-auth') {
-        return next();
-    }
-    
-    if (req.session && req.session.user) {
-        return next();
-    }
-    
-    console.log('Redirecting to login');
-    res.redirect('/login.html');
-});
-
-// Check auth endpoint
-app.get('/check-auth', (req, res) => {
-    console.log('Auth check:', {
-        sessionID: req.sessionID,
-        session: req.session,
-        user: req.session?.user
-    });
-    
-    if (req.session?.user) {
-        res.json({
-            authenticated: true,
-            user: req.session.user
-        });
-    } else {
-        res.json({ authenticated: false });
-    }
-});
-
-// Protect main app page
-app.get('/index.html', requireLogin, (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-// Login endpoint
 app.post('/login', async (req, res) => {
     const { email } = req.body;
     console.log('Login attempt for email:', email);
@@ -190,51 +117,38 @@ app.post('/login', async (req, res) => {
     }
 });
 
-// Logout endpoint
+app.get('/check-auth', (req, res) => {
+    console.log('Auth check:', {
+        sessionID: req.sessionID,
+        session: req.session,
+        user: req.session?.user
+    });
+    
+    if (req.session?.user) {
+        res.json({
+            authenticated: true,
+            user: req.session.user
+        });
+    } else {
+        res.json({ authenticated: false });
+    }
+});
+
 app.post('/logout', (req, res) => {
-    console.log('Logout requested');
     req.session.destroy((err) => {
         if (err) {
             console.error('Logout error:', err);
             res.status(500).json({ error: 'Could not log out' });
         } else {
-            console.log('Session destroyed successfully');
-            // Clear the session cookie
-            res.clearCookie('connect.sid');
+            res.clearCookie('sessionId');
             res.sendStatus(200);
         }
     });
 });
 
-// Check-auth endpoint
-app.get('/check-auth', (req, res) => {
-    console.log('Check auth request received');
-    console.log('Session:', req.session);
-    console.log('Session user:', req.session?.user);
-    
-    if (req.session && req.session.user) {
-        console.log('User is authenticated:', req.session.user);
-        res.json({ 
-            authenticated: true, 
-            user: req.session.user 
-        });
-    } else {
-        console.log('User is not authenticated');
-        res.json({ authenticated: false });
-    }
-});
-
-// Socket.IO connection handling
+// Socket.IO handling
 io.on('connection', (socket) => {
     console.log('A user connected');
-
-    let userLanguage = 'EN';
-
-    socket.on('set language', (lang) => {
-        userLanguage = lang;
-        socket.userLanguage = lang;
-        console.log(`Language set: ${lang} for socket ${socket.id}`);
-    });
 
     socket.on('chat message', (data) => {
         socket.broadcast.emit('chat message', data);

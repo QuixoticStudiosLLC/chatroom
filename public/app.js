@@ -1,31 +1,8 @@
 const socket = io();
 let stream = null;
 let targetLanguage = 'EN';
+let userName = '';
 let isInCall = false;
-
-// Immediate auth check when page loads
-// Update auth check fetch
-fetch('/check-auth', {
-    credentials: 'same-origin',
-    headers: {
-        'Cache-Control': 'no-cache'
-    }
-})
-.then(response => response.json())
-.then(data => {
-    console.log('Auth check response:', data);
-    if (!data.authenticated) {
-        window.location.replace('/login.html');
-    } else {
-        userName = data.user.name;
-        document.getElementById('user-name').textContent = userName;
-    }
-});
-
-.catch(error => {
-    console.error('Auth check error:', error);
-    window.location.replace('/login.html');
-});
 
 // DOM Elements
 const cameraPreview = document.getElementById('camera-preview');
@@ -48,112 +25,37 @@ const declineCallButton = document.getElementById('decline-call');
 const ringtone = document.getElementById('ringtone');
 const hangupSound = document.getElementById('hangupSound');
 const messageSound = document.getElementById('messageSound');
-let userName = '';
 
-// Fetch user info
-fetch('/check-auth')
-    .then(response => response.json())
-    .then(data => {
-        if (data.authenticated && data.user) {
-            userName = data.user.name;
-            document.getElementById('user-name').textContent = userName;
-        }
-    });
-
-// Logout functionality
-logoutButton.addEventListener('click', async () => {
-    try {
-        const response = await fetch('/logout', {
-            method: 'POST'
-        });
-        if (response.ok) {
-            console.log('Logout successful, redirecting...');
-            // Clear any existing session storage
-            sessionStorage.clear();
-            // Force a complete page reload
-            window.location.replace('/login.html');
-        }
-    } catch (error) {
-        console.error('Logout error:', error);
+// Auth check
+fetch('/check-auth', {
+    credentials: 'same-origin',
+    headers: {
+        'Cache-Control': 'no-cache'
+    }
+})
+.then(response => response.json())
+.then(data => {
+    console.log('Auth check response:', data);
+    if (!data.authenticated) {
+        window.location.replace('/login.html');
+    } else {
+        userName = data.user.name;
+        document.getElementById('user-name').textContent = userName;
     }
 });
 
-// Call functionality
-function showNotification(message, buttons = null) {
-    notificationText.textContent = message;
-    const buttonContainer = document.querySelector('.notification-buttons');
-    buttonContainer.style.display = buttons ? 'flex' : 'none';
-    
-    if (!buttons) {
-        notification.style.display = 'block';
-        setTimeout(() => {
-            notification.style.display = 'none';
-        }, 3000);
+// Camera functionality
+function updatePhotoBoxStyle(photoElement, hasPhoto) {
+    const photoBox = photoElement.parentElement;
+    if (hasPhoto) {
+        photoBox.classList.add('has-photo');
+        photoElement.style.display = 'block';
     } else {
-        notification.style.display = 'block';
+        photoBox.classList.remove('has-photo');
+        photoElement.style.display = 'none';
     }
 }
 
-callUserButton.addEventListener('click', () => {
-    if (!isInCall) {
-        socket.emit('call request', { caller: userName });
-        callUserButton.textContent = '📞 Calling...';
-        callUserButton.classList.add('calling');
-    } else {
-        socket.emit('end call');
-        endCall();
-    }
-});
-
-function endCall() {
-    isInCall = false;
-    callUserButton.textContent = '📞 Call';
-    callUserButton.classList.remove('calling');
-    ringtone.pause();
-    ringtone.currentTime = 0;
-}
-
-// Socket event handlers
-socket.on('call request', (data) => {
-    showNotification(`${data.caller} is calling...`, true);
-    ringtone.play();
-});
-
-acceptCallButton.addEventListener('click', () => {
-    notification.style.display = 'none';
-    ringtone.pause();
-    ringtone.currentTime = 0;
-    socket.emit('call accepted', { accepter: userName });
-    isInCall = true;
-    callUserButton.textContent = '📞 End Call';
-    callUserButton.classList.add('calling');
-});
-
-declineCallButton.addEventListener('click', () => {
-    notification.style.display = 'none';
-    ringtone.pause();
-    ringtone.currentTime = 0;
-    socket.emit('call declined', { decliner: userName });
-});
-
-socket.on('call accepted', (data) => {
-    isInCall = true;
-    callUserButton.textContent = '📞 End Call';
-    showNotification(`${data.accepter} accepted the call`);
-});
-
-socket.on('call declined', (data) => {
-    showNotification(`${data.decliner} declined the call`);
-    endCall();
-});
-
-socket.on('call ended', () => {
-    endCall();
-    hangupSound.play();
-    showNotification('Call ended');
-});
-
-// Photo functionality
 startCameraButton.addEventListener('click', async () => {
     try {
         stream = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -167,17 +69,6 @@ startCameraButton.addEventListener('click', async () => {
         alert('Could not access camera');
     }
 });
-
-function updatePhotoBoxStyle(photoElement, hasPhoto) {
-    const photoBox = photoElement.parentElement;
-    if (hasPhoto) {
-        photoBox.classList.add('has-photo');
-        photoElement.style.display = 'block';
-    } else {
-        photoBox.classList.remove('has-photo');
-        photoElement.style.display = 'none';
-    }
-}
 
 takePhotoButton.addEventListener('click', () => {
     const canvas = document.createElement('canvas');
@@ -210,25 +101,7 @@ savePhotoButton.addEventListener('click', () => {
     }
 });
 
-socket.on('photo', (photoData) => {
-    remotePhoto.src = photoData;
-    updatePhotoBoxStyle(remotePhoto, true);
-});
-
 // Chat functionality
-chatForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    if (chatInput.value.trim()) {
-        const messageData = {
-            message: chatInput.value,
-            userName: userName
-        };
-        socket.emit('chat message', messageData);
-        addMessageToChat({ message: chatInput.value }, true);
-        chatInput.value = '';
-    }
-});
-
 function addMessageToChat(data, isOwnMessage) {
     const messageContainer = document.createElement('div');
     messageContainer.classList.add('message-container');
@@ -252,6 +125,44 @@ function addMessageToChat(data, isOwnMessage) {
     chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
+chatForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (chatInput.value.trim()) {
+        const messageData = {
+            message: chatInput.value,
+            userName: userName
+        };
+        socket.emit('chat message', messageData);
+        addMessageToChat({ message: chatInput.value }, true);
+        chatInput.value = '';
+    }
+});
+
+// Call functionality
+function showNotification(message, buttons = null) {
+    notificationText.textContent = message;
+    const buttonContainer = document.querySelector('.notification-buttons');
+    buttonContainer.style.display = buttons ? 'flex' : 'none';
+    
+    if (!buttons) {
+        notification.style.display = 'block';
+        setTimeout(() => {
+            notification.style.display = 'none';
+        }, 3000);
+    } else {
+        notification.style.display = 'block';
+    }
+}
+
+function endCall() {
+    isInCall = false;
+    callUserButton.textContent = '📞 Call';
+    callUserButton.classList.remove('calling');
+    ringtone.pause();
+    ringtone.currentTime = 0;
+}
+
+// Socket event handlers
 socket.on('chat message', (data) => {
     if (!data.isOwnMessage) {
         addMessageToChat(data, false);
@@ -261,10 +172,81 @@ socket.on('chat message', (data) => {
     }
 });
 
+socket.on('photo', (photoData) => {
+    remotePhoto.src = photoData;
+    updatePhotoBoxStyle(remotePhoto, true);
+});
+
+socket.on('call request', (data) => {
+    showNotification(`${data.caller} is calling...`, true);
+    ringtone.play();
+});
+
+socket.on('call accepted', (data) => {
+    isInCall = true;
+    callUserButton.textContent = '📞 End Call';
+    showNotification(`${data.accepter} accepted the call`);
+});
+
+socket.on('call declined', (data) => {
+    showNotification(`${data.decliner} declined the call`);
+    endCall();
+});
+
+socket.on('call ended', () => {
+    endCall();
+    hangupSound.play();
+    showNotification('Call ended');
+});
+
+// Call button handlers
+callUserButton.addEventListener('click', () => {
+    if (!isInCall) {
+        socket.emit('call request', { caller: userName });
+        callUserButton.textContent = '📞 Calling...';
+        callUserButton.classList.add('calling');
+    } else {
+        socket.emit('end call');
+        endCall();
+    }
+});
+
+acceptCallButton.addEventListener('click', () => {
+    notification.style.display = 'none';
+    ringtone.pause();
+    ringtone.currentTime = 0;
+    socket.emit('call accepted', { accepter: userName });
+    isInCall = true;
+    callUserButton.textContent = '📞 End Call';
+    callUserButton.classList.add('calling');
+});
+
+declineCallButton.addEventListener('click', () => {
+    notification.style.display = 'none';
+    ringtone.pause();
+    ringtone.currentTime = 0;
+    socket.emit('call declined', { decliner: userName });
+});
+
 // Language selection
 languageSelect.addEventListener('change', (event) => {
     targetLanguage = event.target.value.toUpperCase();
     socket.emit('set language', targetLanguage);
+});
+
+// Logout functionality
+logoutButton.addEventListener('click', async () => {
+    try {
+        const response = await fetch('/logout', {
+            method: 'POST',
+            credentials: 'same-origin'
+        });
+        if (response.ok) {
+            window.location.replace('/login.html');
+        }
+    } catch (error) {
+        console.error('Logout error:', error);
+    }
 });
 
 // Initialize
@@ -283,3 +265,6 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeSounds();
     takePhotoButton.disabled = true;
 });
+
+// Initial language setup
+socket.emit('set language', targetLanguage);
