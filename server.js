@@ -12,24 +12,31 @@ const io = require('socket.io')(http);
 
 // Redis setup
 const redisClient = createClient({
-    url: process.env.REDIS_URL || 'redis://localhost:6379'
+    url: process.env.REDIS_URL || 'redis://localhost:6379',
+    legacyMode: false
 });
+
+redisClient.on('error', (err) => console.log('Redis Client Error', err));
+redisClient.on('connect', () => console.log('Redis Client Connected'));
+
 redisClient.connect().catch(console.error);
 
 // Session setup with Redis
 const sessionMiddleware = session({
     store: new RedisStore({ 
         client: redisClient,
-        prefix: "session:"
+        prefix: "session:",
+        disableTouch: false
     }),
     secret: process.env.SESSION_SECRET,
-    resave: true,  // Changed to true
-    saveUninitialized: true,  // Changed to true
+    resave: true,
+    saveUninitialized: false,
+    rolling: true,
     cookie: { 
         secure: process.env.NODE_ENV === 'production',
         httpOnly: true,
-        maxAge: 24 * 60 * 60 * 1000, // 24 hours
-        sameSite: 'lax'  // Added this
+        maxAge: 24 * 60 * 60 * 1000,
+        sameSite: 'lax'
     },
     name: 'sessionId'
 });
@@ -124,18 +131,21 @@ app.post('/login', (req, res) => {
         const user = users.users.find(user => user.email === email);
         
         if (user) {
+            console.log('User found:', user);
             // Set session data
             req.session.user = {
                 email: user.email,
                 name: user.name
             };
+            
             // Save session explicitly
             req.session.save((err) => {
                 if (err) {
                     console.error('Session save error:', err);
                     res.sendStatus(500);
                 } else {
-                    console.log('Session saved:', req.session);
+                    console.log('Session saved. Session data:', req.session);
+                    console.log('Session ID:', req.session.id);
                     res.sendStatus(200);
                 }
             });
@@ -163,6 +173,24 @@ app.post('/logout', (req, res) => {
             res.sendStatus(200);
         }
     });
+});
+
+// Check-auth endpoint
+app.get('/check-auth', (req, res) => {
+    console.log('Check auth request received');
+    console.log('Session:', req.session);
+    console.log('Session user:', req.session?.user);
+    
+    if (req.session && req.session.user) {
+        console.log('User is authenticated:', req.session.user);
+        res.json({ 
+            authenticated: true, 
+            user: req.session.user 
+        });
+    } else {
+        console.log('User is not authenticated');
+        res.json({ authenticated: false });
+    }
 });
 
 // Socket.IO connection handling
