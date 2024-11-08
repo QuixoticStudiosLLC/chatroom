@@ -353,6 +353,36 @@ body, html {
     background-color: #cc0000;
 }
 
+/* Online status */
+.online-status {
+    padding: 5px 10px;
+    border-radius: 12px;
+    font-size: 14px;
+    background-color: #ff4444;
+    color: white;
+    margin-right: 10px;
+}
+
+.online-status.online {
+    background-color: #4CAF50;
+}
+
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.4);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(76, 175, 80, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(76, 175, 80, 0);
+    }
+}
+
+.pulse {
+    animation: pulse 2s infinite;
+}
+
 /* For tablets and smaller screens */
 @media screen and (max-width: 1024px) {
     .content {
@@ -372,22 +402,37 @@ body, html {
 
 /* For phones */
 @media screen and (max-width: 768px) {
+    .container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        overflow: hidden;
+    }
+
+    .content {
+        position: relative;
+        height: calc(100% - 50px);
+        overflow: hidden;
+    }
+    
     .photo-section {
         display: none; /* Hide photos on phones */
     }
 
     .chat-section {
+        position: relative;
         width: 100%;
-        height: calc(100vh - 50px);
-        display: flex;
-        flex-direction: column;
-        padding: none;
-        /* Reduce main section to make room for chat form */
-        padding-bottom: 180px;
+        height: 100%;
+        padding: 10px;
+        padding-bottom: 200px; /* Increased padding */
     }
 
     .menu-bar {
-        padding: 8px;
+        padding: 10px;
+        width: 100%;
+        box-sizing: border-box;
     }
 
     #language-select {
@@ -402,30 +447,35 @@ body, html {
 
     .message-container {
         max-width: 85%;
+        margin-left: 0;
+        margin-right: 0;
+    }
+
+    .message-container.own-message {
+        margin-left: auto;
     }
 
     #chat-form {
         position: fixed;
-        /* Position it much higher by default */
-        bottom: 150px;
+        bottom: 180px; /* Increased distance from bottom */
         left: 0;
         right: 0;
+        padding: 15px;
         background: #f8f8f8;
-        padding: 10px;
-        box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
         z-index: 100;
-        /* Add this to prevent the form from bouncing around */
-        transform: translateZ(0);
+        width: 100%;
     }
 
     #chat-input {
-        font-size: 16px; /* Prevents zoom on iOS */
+        width: calc(100% - 70px);
+        margin-right: 10px;
     }
 
     #chat-messages {
-        flex: 1;
-        /* Increase padding to ensure last message is visible */
-        padding-bottom: 200px;
+        height: calc(100% - 60px);
+        padding-bottom: 150px;
+        overflow-y: auto;
         -webkit-overflow-scrolling: touch;
     }
 
@@ -433,6 +483,18 @@ body, html {
         width: 90%;
         left: 5%;
         right: 5%;
+    }
+}
+
+/* iPhone-specific adjustments */
+@supports (-webkit-touch-callout: none) {
+    #chat-form {
+        bottom: 220px; /* Even more space for iOS */
+        padding-bottom: env(safe-area-inset-bottom, 15px);
+    }
+
+    .chat-section {
+        padding-bottom: env(safe-area-inset-bottom, 220px);
     }
 }
 

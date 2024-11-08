@@ -26,9 +26,13 @@ const declineCallButton = document.getElementById('decline-call');
 const ringtone = document.getElementById('ringtone');
 const hangupSound = document.getElementById('hangupSound');
 const messageSound = document.getElementById('messageSound');
+// For login notification
+const onlineStatus = document.createElement('div');
+onlineStatus.classList.add('online-status');
+onlineStatus.textContent = 'Offline';
+document.querySelector('.menu-bar').appendChild(onlineStatus);
 
 // Auth check
-// Update the auth check and language loading
 fetch('/check-auth', {
     credentials: 'same-origin',
     headers: {
@@ -199,6 +203,18 @@ function endCall() {
 }
 
 // Socket event handlers
+socket.on('user online', (data) => {
+    if (data.status === 'online') {
+        callUserButton.classList.add('pulse');
+        onlineStatus.textContent = 'Online';
+        onlineStatus.classList.add('online');
+    } else {
+        callUserButton.classList.remove('pulse');
+        onlineStatus.textContent = 'Offline';
+        onlineStatus.classList.remove('online');
+    }
+});
+
 socket.on('chat message', (data) => {
     if (!data.isOwnMessage) {
         addMessageToChat(data, false);
