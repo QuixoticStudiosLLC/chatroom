@@ -216,6 +216,10 @@ io.on('connection', (socket) => {
 
     // Broadcast to everyone else that a new user connected
     socket.broadcast.emit('user status update', { status: 'online' });
+    // Also notify the new user if others are online
+    if (io.engine.clientsCount > 1) {
+        socket.emit('user status update', { status: 'online' });
+    }
 
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);

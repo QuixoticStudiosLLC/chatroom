@@ -470,7 +470,7 @@ body, html {
         position: fixed;
         left: 0;
         right: 0;
-        bottom: 25px; /* Adjusted from 40px to 35px */
+        bottom: 25px; /* Lowered to 25px */
         background: #f8f8f8;
         padding: 10px;
         box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
@@ -478,6 +478,7 @@ body, html {
     }
 
     #chat-input {
+        font-size: 16px; /* Prevents zoom on iOS */
         width: calc(100% - 70px);
         margin-right: 10px;
     }
