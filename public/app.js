@@ -26,11 +26,6 @@ const declineCallButton = document.getElementById('decline-call');
 const ringtone = document.getElementById('ringtone');
 const hangupSound = document.getElementById('hangupSound');
 const messageSound = document.getElementById('messageSound');
-// For login notification
-const onlineStatus = document.createElement('div');
-onlineStatus.classList.add('online-status');
-onlineStatus.textContent = 'Offline';
-document.querySelector('.menu-bar').appendChild(onlineStatus);
 
 // Auth check
 fetch('/check-auth', {
