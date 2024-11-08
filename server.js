@@ -211,14 +211,19 @@ app.post('/logout', (req, res) => {
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
-    socket.broadcast.emit('user online', { status: 'online' });
-
-    socket.on('disconnect', () => {
-        socket.broadcast.emit('user online', { status: 'offline' });
-        console.log('User disconnected:', socket.id);
-    });
 
     console.log('A user connected:', socket.id);
+
+    // Handle user status
+    socket.on('user status', (data) => {
+        console.log('User status update:', socket.id, data.status);
+        socket.broadcast.emit('user status update', { status: data.status });
+    });
+
+    socket.on('disconnect', () => {
+        console.log('User disconnected:', socket.id);
+        io.emit('user status update', { status: 'offline' });
+    });
 
     socket.userLanguage = 'EN'; // Default language
 

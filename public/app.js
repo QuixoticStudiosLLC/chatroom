@@ -203,7 +203,13 @@ function endCall() {
 }
 
 // Socket event handlers
-socket.on('user online', (data) => {
+socket.on('connect', () => {
+    console.log('Connected to server, emitting online status');
+    socket.emit('user status', { status: 'online' });
+});
+
+socket.on('user status update', (data) => {
+    console.log('Received status update:', data);
     if (data.status === 'online') {
         callUserButton.classList.add('pulse');
         onlineStatus.textContent = 'Online';
