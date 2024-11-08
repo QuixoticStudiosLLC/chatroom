@@ -233,11 +233,11 @@ socket.on('call request', (data) => {
     showNotification(`${data.caller} is calling...`, true);
     ringtone.play().catch(error => {
         console.error('Error playing ringtone:', error);
-        // Try to re-enable audio
         enableSounds();
-        // Try playing again
         ringtone.play().catch(console.error);
     });
+    // Stop pulsing when receiving a call
+    callUserButton.classList.remove('pulse');
 });
 
 socket.on('call accepted', (data) => {
@@ -280,6 +280,7 @@ acceptCallButton.addEventListener('click', () => {
     isInCall = true;
     callUserButton.textContent = '📞 End Call';
     callUserButton.classList.add('calling');
+    callUserButton.classList.remove('pulse'); // Ensure pulse is removed
 });
 
 declineCallButton.addEventListener('click', () => {
@@ -368,6 +369,22 @@ document.addEventListener('DOMContentLoaded', () => {
     updatePhotoBoxStyle(remotePhoto, false);
     initializeSounds();
     takePhotoButton.disabled = true;
+    // For mobile devices, add touch event handling
+    if ('ontouchstart' in window) {
+        console.log('Touch device detected, adding mobile handlers');
+        socket.on('user status update', (data) => {
+            console.log('Mobile status update:', data.status);
+            if (data.status === 'online' && !isInCall) {
+                // Force re-application of pulse class for mobile
+                callUserButton.classList.remove('pulse');
+                setTimeout(() => {
+                    callUserButton.classList.add('pulse');
+                }, 10);
+            } else {
+                callUserButton.classList.remove('pulse');
+            }
+        });
+    }
 });
 
 // Initial language setup

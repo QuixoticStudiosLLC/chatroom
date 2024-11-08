@@ -386,10 +386,11 @@ body, html {
 
 #call-user-button.pulse {
     animation: pulse 2s infinite;
-}
-
-.pulse {
-    animation: pulse 2s infinite;
+    -webkit-animation: pulse 2s infinite;
+    transform: translate3d(0, 0, 0);
+    -webkit-transform: translate3d(0, 0, 0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
 }
 
 /* For tablets and smaller screens */
@@ -492,6 +493,22 @@ body, html {
         width: 90%;
         left: 5%;
         right: 5%;
+    }
+
+    @keyframes pulse {
+        0% {
+            transform: scale(1);
+            -webkit-transform: scale(1);
+        }
+        50% {
+            transform: scale(1.1);
+            -webkit-transform: scale(1.1);
+            background-color: #45a049;
+        }
+        100% {
+            transform: scale(1);
+            -webkit-transform: scale(1);
+        }
     }
 }
 
