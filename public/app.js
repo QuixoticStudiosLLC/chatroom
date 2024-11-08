@@ -206,10 +206,12 @@ socket.on('connect', () => {
 
 socket.on('user status update', (data) => {
     console.log('User status update:', data.status);
-    if (data.status === 'online') {
+    if (data.status === 'online' && !isInCall) {
         callUserButton.classList.add('pulse');
+        console.log('Added pulse class to call button');
     } else {
         callUserButton.classList.remove('pulse');
+        console.log('Removed pulse class from call button');
     }
 });
 
@@ -263,7 +265,7 @@ callUserButton.addEventListener('click', () => {
         socket.emit('call request', { caller: userName });
         callUserButton.textContent = '📞 Calling...';
         callUserButton.classList.add('calling');
-        callUserButton.classList.remove('pulse');  // Remove pulse when calling
+        callUserButton.classList.remove('pulse');
     } else {
         socket.emit('end call');
         endCall();
