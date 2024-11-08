@@ -214,14 +214,18 @@ io.on('connection', (socket) => {
 
     console.log('A user connected:', socket.id);
 
-    // Handle user status
-    // Immediately broadcast that a user is online
+    // Broadcast to everyone else that a new user connected
     socket.broadcast.emit('user status update', { status: 'online' });
 
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);
-        // Broadcast offline status when user disconnects
         socket.broadcast.emit('user status update', { status: 'offline' });
+    });
+
+    socket.on('check online status', () => {
+        if (io.engine.clientsCount > 1) {  // If more than one user connected
+            socket.emit('user status update', { status: 'online' });
+        }
     });
 
     socket.userLanguage = 'EN'; // Default language

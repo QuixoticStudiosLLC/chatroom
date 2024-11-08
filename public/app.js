@@ -205,7 +205,7 @@ socket.on('connect', () => {
 });
 
 socket.on('user status update', (data) => {
-    console.log('Received status update:', data);
+    console.log('User status update:', data.status);
     if (data.status === 'online') {
         callUserButton.classList.add('pulse');
     } else {
@@ -251,12 +251,10 @@ socket.on('call declined', (data) => {
 
 socket.on('call ended', () => {
     endCall();
-    hangupSound.play().catch(error => {
-        console.error('Error playing hangup sound:', error);
-        enableSounds();
-        hangupSound.play().catch(console.error);
-    });
+    hangupSound.play();
     showNotification('Call ended');
+    // Check if other user is still online and restore pulse if needed
+    socket.emit('check online status');
 });
 
 // Call button handlers
@@ -265,6 +263,7 @@ callUserButton.addEventListener('click', () => {
         socket.emit('call request', { caller: userName });
         callUserButton.textContent = '📞 Calling...';
         callUserButton.classList.add('calling');
+        callUserButton.classList.remove('pulse');  // Remove pulse when calling
     } else {
         socket.emit('end call');
         endCall();
