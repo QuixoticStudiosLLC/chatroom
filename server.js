@@ -215,14 +215,13 @@ io.on('connection', (socket) => {
     console.log('A user connected:', socket.id);
 
     // Handle user status
-    socket.on('user status', (data) => {
-        console.log('User status update:', socket.id, data.status);
-        socket.broadcast.emit('user status update', { status: data.status });
-    });
+    // Immediately broadcast that a user is online
+    socket.broadcast.emit('user status update', { status: 'online' });
 
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);
-        io.emit('user status update', { status: 'offline' });
+        // Broadcast offline status when user disconnects
+        socket.broadcast.emit('user status update', { status: 'offline' });
     });
 
     socket.userLanguage = 'EN'; // Default language

@@ -199,20 +199,17 @@ function endCall() {
 
 // Socket event handlers
 socket.on('connect', () => {
-    console.log('Connected to server, emitting online status');
-    socket.emit('user status', { status: 'online' });
+    console.log('Connected to socket server');
+    // Remove pulse initially
+    callUserButton.classList.remove('pulse');
 });
 
 socket.on('user status update', (data) => {
     console.log('Received status update:', data);
     if (data.status === 'online') {
         callUserButton.classList.add('pulse');
-        onlineStatus.textContent = 'Online';
-        onlineStatus.classList.add('online');
     } else {
         callUserButton.classList.remove('pulse');
-        onlineStatus.textContent = 'Offline';
-        onlineStatus.classList.remove('online');
     }
 });
 
