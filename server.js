@@ -274,17 +274,15 @@ io.on('connection', (socket) => {
             for (let [clientId, clientSocket] of io.sockets.sockets) {
                 if (clientId !== socket.id) {
                     const targetLang = clientSocket.userLanguage || 'EN';
-                    console.log('Translation attempt:', {
-                        message: data.message,
-                        targetLang: targetLang,
-                        sourceUserLang: socket.userLanguage
-                    });
                     
                     if (socket.userLanguage && socket.userLanguage !== targetLang) {
                         try {
-                            console.log('Calling Google Translate API...');
-                            const [translation] = await translate.translate(data.message, targetLang);
-                            console.log('Translation successful:', translation);
+                            const options = {
+                                headers: {
+                                    'Referer': 'https://chatroom.quixotic-studios.com'
+                                }
+                            };
+                            const [translation] = await translate.translate(data.message, targetLang, options);
                             
                             clientSocket.emit('chat message', {
                                 message: data.message,
@@ -292,19 +290,14 @@ io.on('connection', (socket) => {
                                 userName: data.userName
                             });
                         } catch (error) {
-                            console.error('Translation error details:', {
-                                message: error.message,
-                                code: error.code,
-                                details: error.response?.data
-                            });
+                            console.error('Translation error:', error);
                             clientSocket.emit('chat message', {
                                 message: data.message,
                                 userName: data.userName,
-                                error: `Translation failed: ${error.message}`
+                                error: 'Translation unavailable'
                             });
                         }
                     } else {
-                        console.log('No translation needed - same language');
                         clientSocket.emit('chat message', {
                             message: data.message,
                             userName: data.userName
