@@ -22,6 +22,10 @@ const translate = new Translate({
     }
 });
 
+// Add a simple rate limiter
+const translationCooldown = new Map();
+const COOLDOWN_MS = 1000; // 1 second between translations
+
 // Add this test function
 async function testTranslation() {
     try {
