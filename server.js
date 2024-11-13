@@ -19,22 +19,23 @@ const translate = new Translate({
     key: process.env.GOOGLE_TRANSLATE_API_KEY
 });
 
-// Add a test translation endpoint
-app.get('/test-translate', async (req, res) => {
+// Add this test function
+async function testTranslation() {
     try {
-        const [translation] = await translate.translate('Hello World', 'uk');
-        res.json({ 
-            success: true, 
-            translation,
-            apiKeyPresent: !!process.env.GOOGLE_TRANSLATE_API_KEY
-        });
+        console.log('Testing translation API...');
+        console.log('API Key present:', !!process.env.GOOGLE_TRANSLATE_API_KEY);
+        const [translation] = await translate.translate('Hello', 'UK');
+        console.log('Test translation successful:', translation);
     } catch (error) {
-        res.status(500).json({ 
+        console.error('Translation test failed:', {
             error: error.message,
-            apiKeyPresent: !!process.env.GOOGLE_TRANSLATE_API_KEY
+            code: error.code,
+            details: error.response?.data
         });
     }
-});
+}
+// Call it when server starts
+testTranslation();
 
 // Redis setup
 const redisClient = createClient({
@@ -267,16 +268,20 @@ io.on('connection', (socket) => {
     // Chat message with translation
     socket.on('chat message', async (data) => {
         try {
-            // For each recipient
             for (let [clientId, clientSocket] of io.sockets.sockets) {
                 if (clientId !== socket.id) {
                     const targetLang = clientSocket.userLanguage || 'EN';
+                    console.log('Translation attempt:', {
+                        message: data.message,
+                        targetLang: targetLang,
+                        sourceUserLang: socket.userLanguage
+                    });
                     
-                    // Only attempt translation if target language is different
                     if (socket.userLanguage && socket.userLanguage !== targetLang) {
                         try {
+                            console.log('Calling Google Translate API...');
                             const [translation] = await translate.translate(data.message, targetLang);
-                            console.log(`Translated message to ${targetLang}:`, translation);
+                            console.log('Translation successful:', translation);
                             
                             clientSocket.emit('chat message', {
                                 message: data.message,
@@ -284,16 +289,19 @@ io.on('connection', (socket) => {
                                 userName: data.userName
                             });
                         } catch (error) {
-                            console.error('Translation error:', error);
-                            // Send original message if translation fails
+                            console.error('Translation error details:', {
+                                message: error.message,
+                                code: error.code,
+                                details: error.response?.data
+                            });
                             clientSocket.emit('chat message', {
                                 message: data.message,
                                 userName: data.userName,
-                                error: 'Translation unavailable'
+                                error: `Translation failed: ${error.message}`
                             });
                         }
                     } else {
-                        // No translation needed
+                        console.log('No translation needed - same language');
                         clientSocket.emit('chat message', {
                             message: data.message,
                             userName: data.userName
