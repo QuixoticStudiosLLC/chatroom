@@ -266,65 +266,46 @@ io.on('connection', (socket) => {
 
     // Chat message with translation
     socket.on('chat message', async (data) => {
-        console.log('Processing chat message:', {
-            message: data.message,
-            senderSocketId: socket.id,
-            senderLanguage: socket.userLanguage
-        });
-
         try {
-            // Detect source language
-            const [detection] = await translate.detect(data.message);
-            const sourceLanguage = detection.language.toUpperCase();
-            console.log('Source language detected:', sourceLanguage);
-
-            // Send to other clients
+            // For each recipient
             for (let [clientId, clientSocket] of io.sockets.sockets) {
                 if (clientId !== socket.id) {
-                    const targetLang = clientSocket.userLanguage;
-                    console.log('Translation check:', {
-                        targetClient: clientId,
-                        targetLanguage: targetLang,
-                        sourceLanguage: sourceLanguage
-                    });
-
-                    if (targetLang && targetLang !== sourceLanguage) {
+                    const targetLang = clientSocket.userLanguage || 'EN';
+                    
+                    // Only attempt translation if target language is different
+                    if (socket.userLanguage && socket.userLanguage !== targetLang) {
                         try {
-                            console.log(`Translating from ${sourceLanguage} to ${targetLang}`);
                             const [translation] = await translate.translate(data.message, targetLang);
-                            console.log('Translation result:', translation);
+                            console.log(`Translated message to ${targetLang}:`, translation);
                             
                             clientSocket.emit('chat message', {
                                 message: data.message,
                                 translation: translation,
-                                userName: data.userName,
-                                sourceLanguage: sourceLanguage,
-                                targetLanguage: targetLang
+                                userName: data.userName
                             });
                         } catch (error) {
                             console.error('Translation error:', error);
+                            // Send original message if translation fails
                             clientSocket.emit('chat message', {
                                 message: data.message,
                                 userName: data.userName,
-                                error: `Translation failed: ${error.message}`
+                                error: 'Translation unavailable'
                             });
                         }
                     } else {
-                        console.log('No translation needed');
+                        // No translation needed
                         clientSocket.emit('chat message', {
                             message: data.message,
-                            userName: data.userName,
-                            sourceLanguage: sourceLanguage
+                            userName: data.userName
                         });
                     }
                 }
             }
         } catch (error) {
-            console.error('Message processing error:', error);
+            console.error('Message handling error:', error);
             socket.broadcast.emit('chat message', {
                 message: data.message,
-                userName: data.userName,
-                error: 'Message processing failed'
+                userName: data.userName
             });
         }
     });
