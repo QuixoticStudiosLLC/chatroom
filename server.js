@@ -16,7 +16,10 @@ const { Translate } = require('@google-cloud/translate').v2;
 // Initialize with explicit settings
 const translate = new Translate({
     projectId: 'valiant-surfer-432316-v6', // Add your Google Cloud project ID
-    key: process.env.GOOGLE_TRANSLATE_API_KEY
+    key: process.env.GOOGLE_TRANSLATE_API_KEY,
+    headers: {
+        'Referer': 'https://chatroom.quixotic-studios.com'
+    }
 });
 
 // Add this test function
