@@ -8,7 +8,21 @@ const fs = require('fs');
 
 const app = express();
 const http = require('http').createServer(app);
-const io = require('socket.io')(http);
+const io = require('socket.io')(http, {
+    cors: {
+        origin: ["https://chatroom.quixotic-studios.com", "http://chatroom.quixotic-studios.com"],
+        methods: ["GET", "POST"],
+        credentials: true
+    },
+    transports: ['websocket', 'polling'],
+    pingTimeout: 60000,
+    pingInterval: 25000
+});
+
+// Add error handling for the Socket.IO server
+io.engine.on("connection_error", (err) => {
+    console.log('Socket.IO connection error:', err);
+});
 // Google Translate
 const { Translate } = require('@google-cloud/translate').v2;
 //const translate = new Translate({key: process.env.GOOGLE_TRANSLATE_API_KEY});
@@ -281,12 +295,25 @@ io.on('connection', (socket) => {
                     
                     if (socket.userLanguage && socket.userLanguage !== targetLang) {
                         try {
-                            const options = {
-                                headers: {
-                                    'Referer': 'https://chatroom.quixotic-studios.com'
-                                }
-                            };
-                            const [translation] = await translate.translate(data.message, targetLang, options);
+                            // Check cooldown
+                            const lastTranslation = translationCooldown.get(clientId) || 0;
+                            const now = Date.now();
+                            
+                            if (now - lastTranslation < COOLDOWN_MS) {
+                                // Skip translation if in cooldown
+                                clientSocket.emit('chat message', {
+                                    message: data.message,
+                                    userName: data.userName,
+                                    notice: "Translation temporarily unavailable"
+                                });
+                                return;
+                            }
+                            
+                            // Update cooldown
+                            translationCooldown.set(clientId, now);
+                            
+                            const [translation] = await translate.translate(data.message, targetLang);
+                            console.log(`Translation success: "${data.message}" -> "${translation}"`);
                             
                             clientSocket.emit('chat message', {
                                 message: data.message,
@@ -294,11 +321,17 @@ io.on('connection', (socket) => {
                                 userName: data.userName
                             });
                         } catch (error) {
-                            console.error('Translation error:', error);
+                            console.error('Translation error:', {
+                                message: error.message,
+                                code: error.code,
+                                details: error.response?.data,
+                                quotaInfo: error.response?.headers?.['x-ratelimit-remaining']
+                            });
+                            
                             clientSocket.emit('chat message', {
                                 message: data.message,
                                 userName: data.userName,
-                                error: 'Translation unavailable'
+                                notice: "Translation unavailable"
                             });
                         }
                     } else {

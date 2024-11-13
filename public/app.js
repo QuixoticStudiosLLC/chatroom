@@ -1,4 +1,9 @@
-const socket = io();
+const socket = io({
+    transports: ['websocket', 'polling'],
+    reconnectionAttempts: 5,
+    reconnectionDelay: 1000,
+    timeout: 20000
+});
 let stream = null;
 let targetLanguage = 'EN';
 let savedLanguage = 'EN';
@@ -202,6 +207,14 @@ socket.on('connect', () => {
     console.log('Connected to socket server');
     // Remove pulse initially
     callUserButton.classList.remove('pulse');
+});
+
+socket.on('connect_error', (error) => {
+    console.log('Connection error:', error);
+});
+
+socket.on('disconnect', (reason) => {
+    console.log('Disconnected:', reason);
 });
 
 socket.on('user status update', (data) => {
