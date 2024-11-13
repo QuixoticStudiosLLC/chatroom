@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Photo Chat Website</title>
+    <title>ChatRoom - Login</title>
     <link rel="stylesheet" href="styles.css">
+    <link rel="icon" type="image/x-icon" href="/img/favicon.ico">
     <style>
         .login-container {
             display: flex;
@@ -91,7 +92,7 @@
                     }, 100);
                 } else {
                     console.log('Login failed');
-                    errorMessage.textContent = 'Invalid email address. Please try again.';
+                    errorMessage.textContent = 'You are not authorized to enter this website.';
                 }
             } catch (error) {
                 console.error('Login error:', error);
