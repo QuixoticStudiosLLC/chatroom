@@ -21,6 +21,8 @@ const io = require('socket.io')(http, {
 const dailyTranslationCount = new Map();
 const DAILY_LIMIT = 1000; // Adjust this number
 const CHAR_LIMIT = 200;   // Limit characters per message
+let monthlyCharCount = 0;
+const MONTHLY_FREE_LIMIT = 500000;
 
 // Reset counts daily
 function resetDailyCounts() {
@@ -299,71 +301,33 @@ io.on('connection', (socket) => {
     // Chat message with translation
     socket.on('chat message', async (data) => {
         try {
-            // Check message length
-            if (data.message.length > CHAR_LIMIT) {
-                data.message = data.message.substring(0, CHAR_LIMIT) + '...';
-            }
-
-            // Get/update daily count
-            const today = new Date().toDateString();
-            const currentCount = dailyTranslationCount.get(today) || 0;
-
-            if (currentCount >= DAILY_LIMIT) {
-                console.log('Daily translation limit reached');
-                socket.broadcast.emit('chat message', {
-                    message: data.message,
-                    userName: data.userName,
-                    notice: "Translation unavailable - daily limit reached"
-                });
-                return;
-            }
-
+            // Log current usage
+            console.log('Monthly character count:', monthlyCharCount);
+            console.log('Message characters:', data.message.length);
+    
             for (let [clientId, clientSocket] of io.sockets.sockets) {
                 if (clientId !== socket.id) {
                     const targetLang = clientSocket.userLanguage || 'EN';
                     
                     if (socket.userLanguage && socket.userLanguage !== targetLang) {
                         try {
-                            // Check cooldown
-                            const lastTranslation = translationCooldown.get(clientId) || 0;
-                            const now = Date.now();
-                            
-                            if (now - lastTranslation < COOLDOWN_MS) {
-                                // Skip translation if in cooldown
-                                clientSocket.emit('chat message', {
-                                    message: data.message,
-                                    userName: data.userName,
-                                    notice: "Translation temporarily unavailable"
-                                });
-                                return;
-                            }
-                            
-                            // Update cooldown
-                            translationCooldown.set(clientId, now);
-                            
+                            // Update character count before translation
+                            monthlyCharCount += data.message.length;
+                            console.log(`Translation attempt: ${monthlyCharCount}/${MONTHLY_FREE_LIMIT} characters used this month`);
+    
                             const [translation] = await translate.translate(data.message, targetLang);
-                            console.log(`Translation success: "${data.message}" -> "${translation}"`);
                             
                             clientSocket.emit('chat message', {
                                 message: data.message,
                                 translation: translation,
                                 userName: data.userName
                             });
-                            
-                            // After successful translation:
-                            dailyTranslationCount.set(today, currentCount + 1);
                         } catch (error) {
-                            console.error('Translation error:', {
-                                message: error.message,
-                                code: error.code,
-                                details: error.response?.data,
-                                quotaInfo: error.response?.headers?.['x-ratelimit-remaining']
-                            });
-                            
+                            console.error('Translation error:', error);
                             clientSocket.emit('chat message', {
                                 message: data.message,
                                 userName: data.userName,
-                                notice: "Translation unavailable"
+                                error: 'Translation unavailable'
                             });
                         }
                     } else {
