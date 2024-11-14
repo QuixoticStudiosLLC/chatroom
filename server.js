@@ -18,6 +18,16 @@ const io = require('socket.io')(http, {
     pingTimeout: 60000,
     pingInterval: 25000
 });
+const dailyTranslationCount = new Map();
+const DAILY_LIMIT = 1000; // Adjust this number
+const CHAR_LIMIT = 200;   // Limit characters per message
+
+// Reset counts daily
+function resetDailyCounts() {
+    dailyTranslationCount.clear();
+}
+// Reset at midnight
+setInterval(resetDailyCounts, 24 * 60 * 60 * 1000);
 
 // Add error handling for the Socket.IO server
 io.engine.on("connection_error", (err) => {
@@ -289,6 +299,25 @@ io.on('connection', (socket) => {
     // Chat message with translation
     socket.on('chat message', async (data) => {
         try {
+            // Check message length
+            if (data.message.length > CHAR_LIMIT) {
+                data.message = data.message.substring(0, CHAR_LIMIT) + '...';
+            }
+
+            // Get/update daily count
+            const today = new Date().toDateString();
+            const currentCount = dailyTranslationCount.get(today) || 0;
+
+            if (currentCount >= DAILY_LIMIT) {
+                console.log('Daily translation limit reached');
+                socket.broadcast.emit('chat message', {
+                    message: data.message,
+                    userName: data.userName,
+                    notice: "Translation unavailable - daily limit reached"
+                });
+                return;
+            }
+
             for (let [clientId, clientSocket] of io.sockets.sockets) {
                 if (clientId !== socket.id) {
                     const targetLang = clientSocket.userLanguage || 'EN';
@@ -320,6 +349,9 @@ io.on('connection', (socket) => {
                                 translation: translation,
                                 userName: data.userName
                             });
+                            
+                            // After successful translation:
+                            dailyTranslationCount.set(today, currentCount + 1);
                         } catch (error) {
                             console.error('Translation error:', {
                                 message: error.message,
